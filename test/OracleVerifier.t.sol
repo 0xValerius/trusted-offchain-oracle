@@ -7,8 +7,20 @@ import "forge-std/console.sol";
 import {OracleVerifier} from "../src/OracleVerifier.sol";
 
 contract OracleVerifierTest is Test {
+    address owner = makeAddr("owner");
+    address oracle = makeAddr("oracle");
+    address user = makeAddr("user");
+
+    OracleVerifier verifier;
+
     function setUp() public {
-        Oracle oracle = new Oracle();
-        oracle.setTimeThreshold(100);
+        vm.startPrank(owner);
+        verifier = new OracleVerifier();
+        verifier.setTimeThreshold(100);
+    }
+
+    function test_OracleVerifierDeployment() public {
+        assertEq(verifier.owner(), owner);
+        assertEq(verifier.timeThreshold(), 100);
     }
 }
