@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 
 import {Ownable} from "openzeppelin/access/Ownable.sol";
 
-contract Oracle is Ownable {
+contract OracleVerifier is Ownable {
     mapping(address => bool) public isTrusted;
     uint256 public timeThreshold;
 
