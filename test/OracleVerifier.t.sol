@@ -62,14 +62,14 @@ contract OracleVerifierTest is Test {
         bytes memory data = abi.encode(price, text);
         uint256 timestamp = block.timestamp;
         bytes memory signature = signPayload(data, timestamp, oracleKey);
-        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        mock.updateData(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
         assertEq(mock.price(), price);
         assertEq(mock.text(), text);
 
         (, uint256 notTrustedKey) = makeAddrAndKey("notTrustedOracle");
         signature = signPayload(data, timestamp, notTrustedKey);
         vm.expectRevert(InvalidSigner.selector);
-        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        mock.updateData(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
     }
 
     function test_RevertOnTimestamp() public {
@@ -80,13 +80,13 @@ contract OracleVerifierTest is Test {
         uint256 timestamp = block.timestamp + 1;
         bytes memory signature = signPayload(data, timestamp, oracleKey);
         vm.expectRevert(InvalidTimeStamp.selector);
-        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        mock.updateData(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
 
         vm.warp(100);
         timestamp = block.timestamp - timeThreshold - 1;
         signature = signPayload(data, timestamp, oracleKey);
         vm.expectRevert(InvalidTimeStamp.selector);
-        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        mock.updateData(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
     }
 
     function test_RevertOnCorruptedHash() public {
@@ -98,6 +98,6 @@ contract OracleVerifierTest is Test {
         bytes memory signature = signPayload(data, timestamp, oracleKey);
 
         vm.expectRevert(InvalidHash.selector);
-        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(corrupted_data, timestamp)), signature);
+        mock.updateData(data, timestamp, keccak256(abi.encodePacked(corrupted_data, timestamp)), signature);
     }
 }

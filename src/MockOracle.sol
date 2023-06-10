@@ -8,7 +8,7 @@ contract MockOracle is OracleVerifier {
     uint256 public price;
     string public text;
 
-    function updatePrice(bytes memory data, uint256 timestamp, bytes32 messageHash, bytes memory signature)
+    function updateData(bytes memory data, uint256 timestamp, bytes32 messageHash, bytes memory signature)
         public
         verify(data, timestamp, messageHash, signature)
     {
