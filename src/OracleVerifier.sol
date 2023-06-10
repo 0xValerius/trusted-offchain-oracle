@@ -2,13 +2,32 @@
 
 pragma solidity ^0.8.17;
 
-import {Ownable} from "openzeppelin/access/Ownable.sol";
-
-contract OracleVerifier is Ownable {
-    mapping(address => bool) public isTrusted;
+contract OracleVerifier {
+    address private _owner;
+    mapping(address => bool) private _isTrusted;
     uint256 public timeThreshold;
 
-    // add a replay attack protection?
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event UpdatedOffChainOracle(address indexed _address, bool _isTrusted);
+
+    constructor() {
+        _owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == _owner, "Caller is not the owner.");
+        _;
+    }
+
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
+    function owner() external view returns (address) {
+        return _owner;
+    }
 
     function verify(bytes memory _data, uint256 _timestamp, bytes32 _messageHash, bytes memory _signature)
         public
@@ -33,7 +52,7 @@ contract OracleVerifier is Ownable {
             v := byte(0, mload(add(_signature, 96)))
         }
 
-        require(isTrusted[ecrecover(ethSignedMessageHash, v, r, s)], "Invalid signer.");
+        require(_isTrusted[ecrecover(ethSignedMessageHash, v, r, s)], "Invalid signer.");
 
         return true;
     }
@@ -43,6 +62,11 @@ contract OracleVerifier is Ownable {
     }
 
     function manageTrusted(address _address, bool _isTruded) external onlyOwner {
-        isTrusted[_address] = _isTruded;
+        _isTrusted[_address] = _isTruded;
+        emit UpdatedOffChainOracle(_address, _isTruded);
+    }
+
+    function isTrusted(address _address) external view returns (bool) {
+        return _isTrusted[_address];
     }
 }
