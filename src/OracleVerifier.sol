@@ -34,6 +34,8 @@ contract OracleVerifier is Ownable {
         }
 
         require(isTrusted[ecrecover(ethSignedMessageHash, v, r, s)], "Invalid signer.");
+
+        return true;
     }
 
     function setTimeThreshold(uint256 _timeThreshold) external onlyOwner {
