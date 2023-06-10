@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "forge-std/StdUtils.sol";
 
-import {OracleVerifier} from "../src/OracleVerifier.sol";
+import {MockOracle} from "../src/MockOracle.sol";
 
 contract OracleVerifierTest is Test {
     // Errors declarations
@@ -22,14 +22,14 @@ contract OracleVerifierTest is Test {
     address user = makeAddr("user");
     uint256 timeThreshold = 10;
 
-    OracleVerifier verifier;
+    MockOracle mock;
 
     function setUp() public {
         (oracle, oracleKey) = makeAddrAndKey("oracle");
         vm.startPrank(owner);
-        verifier = new OracleVerifier();
-        verifier.setTimeThreshold(timeThreshold);
-        verifier.manageTrusted(oracle, true);
+        mock = new MockOracle();
+        mock.setTimeThreshold(timeThreshold);
+        mock.manageTrusted(oracle, true);
         vm.stopPrank();
     }
 
@@ -42,60 +42,62 @@ contract OracleVerifierTest is Test {
     }
 
     function test_OracleVerifierDeployment() public {
-        assertEq(verifier.owner(), owner);
-        assertEq(verifier.timeThreshold(), timeThreshold);
-        assertEq(verifier.isTrusted(oracle), true);
+        assertEq(mock.owner(), owner);
+        assertEq(mock.timeThreshold(), timeThreshold);
+        assertEq(mock.isTrusted(oracle), true);
     }
 
     function test_OnlyOwnerFunctions() public {
         vm.startPrank(user);
         vm.expectRevert(NotTheOwner.selector);
-        verifier.setTimeThreshold(100);
+        mock.setTimeThreshold(100);
         vm.expectRevert(NotTheOwner.selector);
-        verifier.manageTrusted(oracle, true);
+        mock.manageTrusted(oracle, true);
         vm.stopPrank();
     }
 
     function test_VerifyTrusted() public {
         uint256 price = 123;
-        string memory mock = "abc";
-        bytes memory data = abi.encode(price, mock);
+        string memory text = "abc";
+        bytes memory data = abi.encode(price, text);
         uint256 timestamp = block.timestamp;
         bytes memory signature = signPayload(data, timestamp, oracleKey);
-        assertEq(verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature), true);
+        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        assertEq(mock.price(), price);
+        assertEq(mock.text(), text);
 
         (, uint256 notTrustedKey) = makeAddrAndKey("notTrustedOracle");
         signature = signPayload(data, timestamp, notTrustedKey);
         vm.expectRevert(InvalidSigner.selector);
-        verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
     }
 
     function test_RevertOnTimestamp() public {
         uint256 price = 123;
-        string memory mock = "abc";
-        bytes memory data = abi.encode(price, mock);
+        string memory text = "abc";
+        bytes memory data = abi.encode(price, text);
 
         uint256 timestamp = block.timestamp + 1;
         bytes memory signature = signPayload(data, timestamp, oracleKey);
         vm.expectRevert(InvalidTimeStamp.selector);
-        verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
 
         vm.warp(100);
         timestamp = block.timestamp - timeThreshold - 1;
         signature = signPayload(data, timestamp, oracleKey);
         vm.expectRevert(InvalidTimeStamp.selector);
-        verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
     }
 
     function test_RevertOnCorruptedHash() public {
         uint256 price = 123;
-        string memory mock = "abc";
-        bytes memory data = abi.encode(price, mock);
+        string memory text = "abc";
+        bytes memory data = abi.encode(price, text);
         bytes memory corrupted_data = abi.encode(price, "wrong");
         uint256 timestamp = block.timestamp;
         bytes memory signature = signPayload(data, timestamp, oracleKey);
 
         vm.expectRevert(InvalidHash.selector);
-        verifier.verify(data, timestamp, keccak256(abi.encodePacked(corrupted_data, timestamp)), signature);
+        mock.updatePrice(data, timestamp, keccak256(abi.encodePacked(corrupted_data, timestamp)), signature);
     }
 }
