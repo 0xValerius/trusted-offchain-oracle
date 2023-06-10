@@ -3,44 +3,51 @@
 pragma solidity ^0.8.17;
 
 contract OracleVerifier {
-    address private _owner;
-    mapping(address => bool) private _isTrusted;
-    uint256 public timeThreshold;
-
+    // Event declarations
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event UpdatedOffChainOracle(address indexed _address, bool _isTrusted);
+
+    // Error declarations
+    error NotTheOwner();
+    error InvalidTimeStamp();
+    error InvalidSignatureLength();
+    error InvalidHash();
+    error InvalidSigner();
+
+    address private _owner;
+    mapping(address => bool) private _isTrusted;
+    uint256 private _timeThreshold;
 
     constructor() {
         _owner = msg.sender;
     }
 
     modifier onlyOwner() {
-        require(msg.sender == _owner, "Caller is not the owner.");
+        if (msg.sender != _owner) {
+            revert NotTheOwner();
+        }
         _;
     }
 
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        address oldOwner = _owner;
-        _owner = newOwner;
-        emit OwnershipTransferred(oldOwner, newOwner);
-    }
-
-    function owner() external view returns (address) {
-        return _owner;
-    }
-
-    function verify(bytes memory _data, uint256 _timestamp, bytes32 _messageHash, bytes memory _signature)
+    function verify(bytes memory data, uint256 timestamp, bytes32 messageHash, bytes memory _signature)
         public
         view
         returns (bool)
     {
-        require(_timestamp <= block.timestamp, "Timestamp is in the future.");
-        require(block.timestamp - _timestamp <= timeThreshold, "Timestamp is too old.");
-        require(_signature.length == 65, "Invalid signature length.");
-        bytes32 messageHash = keccak256(abi.encodePacked(_data, _timestamp));
-        require(messageHash == _messageHash, "Invalid message hash.");
+        if (timestamp > block.timestamp || block.timestamp - timestamp > _timeThreshold) {
+            revert InvalidTimeStamp();
+        }
 
-        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _messageHash));
+        if (_signature.length != 65) {
+            revert InvalidSignatureLength();
+        }
+
+        bytes32 expectedMessageHash = keccak256(abi.encodePacked(data, timestamp));
+        if (expectedMessageHash != messageHash) {
+            revert InvalidHash();
+        }
+
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
 
         bytes32 s;
         bytes32 r;
@@ -52,18 +59,37 @@ contract OracleVerifier {
             v := byte(0, mload(add(_signature, 96)))
         }
 
-        require(_isTrusted[ecrecover(ethSignedMessageHash, v, r, s)], "Invalid signer.");
+        if (!_isTrusted[ecrecover(ethSignedMessageHash, v, r, s)]) {
+            revert InvalidSigner();
+        }
 
         return true;
     }
 
-    function setTimeThreshold(uint256 _timeThreshold) external onlyOwner {
-        timeThreshold = _timeThreshold;
+    // State modifying functions
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
     }
 
-    function manageTrusted(address _address, bool _isTruded) external onlyOwner {
-        _isTrusted[_address] = _isTruded;
-        emit UpdatedOffChainOracle(_address, _isTruded);
+    function owner() external view returns (address) {
+        return _owner;
+    }
+
+    function setTimeThreshold(uint256 newTimeThreshold) external onlyOwner {
+        _timeThreshold = newTimeThreshold;
+    }
+
+    function manageTrusted(address oracleAddress, bool oracleStatus) external onlyOwner {
+        _isTrusted[oracleAddress] = oracleStatus;
+        emit UpdatedOffChainOracle(oracleAddress, oracleStatus);
+    }
+
+    // View function
+
+    function timeThreshold() external view returns (uint256) {
+        return _timeThreshold;
     }
 
     function isTrusted(address _address) external view returns (bool) {
