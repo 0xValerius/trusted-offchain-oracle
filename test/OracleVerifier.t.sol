@@ -13,7 +13,7 @@ contract OracleVerifierTest is Test {
     uint256 oracle_key;
     address owner = makeAddr("owner");
     address user = makeAddr("user");
-    uint256 timeThreshold = 100;
+    uint256 timeThreshold = 10;
 
     OracleVerifier verifier;
 
@@ -36,7 +36,7 @@ contract OracleVerifierTest is Test {
 
     function test_OracleVerifierDeployment() public {
         assertEq(verifier.owner(), owner);
-        assertEq(verifier.timeThreshold(), 100);
+        assertEq(verifier.timeThreshold(), timeThreshold);
         assertEq(verifier.isTrusted(oracle), true);
     }
 
@@ -56,20 +56,41 @@ contract OracleVerifierTest is Test {
         uint256 timestamp = block.timestamp;
         bytes memory signature = signPayload(data, timestamp, oracle_key);
         assertEq(verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature), true);
+
+        
+
+        (, uint256 notTrustedKey) = makeAddrAndKey("notTrustedOracle");
+
+        signature = signPayload(data, timestamp, notTrustedKey);
+        assertEq(verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature), false);
     }
 
     function test_RevertOnTimestamp() public {
         uint256 price = 123;
         string memory mock = "abc";
         bytes memory data = abi.encode(price, mock);
+
         uint256 timestamp = block.timestamp + 1;
         bytes memory signature = signPayload(data, timestamp, oracle_key);
         vm.expectRevert("Timestamp is in the future.");
-        assertEq(verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature), true);
+        verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
 
+        vm.warp(100);
         timestamp = block.timestamp - timeThreshold - 1;
         signature = signPayload(data, timestamp, oracle_key);
         vm.expectRevert("Timestamp is too old.");
-        assertEq(verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature), true);
+        verifier.verify(data, timestamp, keccak256(abi.encodePacked(data, timestamp)), signature);
+    }
+
+    function test_RevertOnCorruptedHash() public {
+        uint256 price = 123;
+        string memory mock = "abc";
+        bytes memory data = abi.encode(price, mock);
+        bytes memory corrupted_data = abi.encode(price, "wrong");
+        uint256 timestamp = block.timestamp;
+        bytes memory signature = signPayload(data, timestamp, oracle_key);
+
+        vm.expectRevert("Invalid message hash.");
+        verifier.verify(data, timestamp, keccak256(abi.encodePacked(corrupted_data, timestamp)), signature);
     }
 }
