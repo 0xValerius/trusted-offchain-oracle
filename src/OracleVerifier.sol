@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.17;
 
-contract OracleVerifier {
+abstract contract OracleVerifier {
     // Event declarations
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event UpdatedOffChainOracle(address indexed _address, bool _isTrusted);
@@ -29,16 +29,12 @@ contract OracleVerifier {
         _;
     }
 
-    function verify(bytes memory data, uint256 timestamp, bytes32 messageHash, bytes memory _signature)
-        public
-        view
-        returns (bool)
-    {
+    modifier verify(bytes memory data, uint256 timestamp, bytes32 messageHash, bytes memory signature) {
         if (timestamp > block.timestamp || block.timestamp - timestamp > _timeThreshold) {
             revert InvalidTimeStamp();
         }
 
-        if (_signature.length != 65) {
+        if (signature.length != 65) {
             revert InvalidSignatureLength();
         }
 
@@ -54,16 +50,16 @@ contract OracleVerifier {
         uint8 v;
 
         assembly {
-            r := mload(add(_signature, 32))
-            s := mload(add(_signature, 64))
-            v := byte(0, mload(add(_signature, 96)))
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := byte(0, mload(add(signature, 96)))
         }
 
         if (!_isTrusted[ecrecover(ethSignedMessageHash, v, r, s)]) {
             revert InvalidSigner();
         }
 
-        return true;
+        _;
     }
 
     // State modifying functions
@@ -87,7 +83,6 @@ contract OracleVerifier {
     }
 
     // View function
-
     function timeThreshold() external view returns (uint256) {
         return _timeThreshold;
     }
