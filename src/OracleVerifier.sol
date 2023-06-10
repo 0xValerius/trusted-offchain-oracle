@@ -8,20 +8,16 @@ contract OracleVerifier is Ownable {
     mapping(address => bool) public isTrusted;
     uint256 public timeThreshold;
 
-    constructor() {
-        isTrusted[msg.sender] = true;
-    }
-
     // add a replay attack protection?
 
-    function verify(uint256 _data, uint256 _timestamp, bytes32 _messageHash, bytes memory _signature)
+    function verify(bytes memory _data, uint256 _timestamp, bytes32 _messageHash, bytes memory _signature)
         public
         view
         returns (bool)
     {
+        require(_timestamp <= block.timestamp, "Timestamp is in the future.");
         require(block.timestamp - _timestamp <= timeThreshold, "Timestamp is too old.");
         require(_signature.length == 65, "Invalid signature length.");
-        require(_timestamp <= block.timestamp, "Timestamp is in the future.");
         bytes32 messageHash = keccak256(abi.encodePacked(_data, _timestamp));
         require(messageHash == _messageHash, "Invalid message hash.");
 
@@ -37,7 +33,7 @@ contract OracleVerifier is Ownable {
             v := byte(0, mload(add(_signature, 96)))
         }
 
-        return isTrusted[ecrecover(ethSignedMessageHash, v, r, s)];
+        require(isTrusted[ecrecover(ethSignedMessageHash, v, r, s)], "Invalid signer.");
     }
 
     function setTimeThreshold(uint256 _timeThreshold) external onlyOwner {
