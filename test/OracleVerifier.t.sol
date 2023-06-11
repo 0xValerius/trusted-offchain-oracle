@@ -41,6 +41,44 @@ contract OracleVerifierTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
+    function stringToUint(string memory s) public pure returns (uint256 result) {
+        bytes memory b = bytes(s);
+        uint256 i;
+        result = 0;
+        uint256 totNum = b.length;
+        uint256 decPos = 0;
+        for (i = 0; i < b.length; i++) {
+            uint256 c = uint256(uint8(b[i]));
+            if (c >= 48 && c <= 57) {
+                result = result * 10 + (c - 48);
+                decPos++;
+            }
+            if (c == 46) break; // encounter '.'
+        }
+        if (decPos < totNum) {
+            for (uint256 j = decPos + 1; j < 18; j++) {
+                result *= 10;
+            }
+        }
+        return result;
+    }
+
+    function fetchPrice() public returns (string memory symbol, uint256 price) {
+        string[] memory inputs = new string[](5);
+        inputs[0] = "curl";
+        inputs[1] = "-s";
+        inputs[2] = "-X";
+        inputs[3] = "GET";
+        inputs[4] = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
+
+        bytes memory output = vm.ffi(inputs);
+        string memory json = string(output);
+        string memory symbol = abi.decode(vm.parseJson(json, "$.symbol"), (string));
+        string memory priceString = abi.decode(vm.parseJson(json, "$.price"), (string));
+        uint256 price = stringToUint(priceString);
+        return (symbol, price);
+    }
+
     function test_OracleVerifierDeployment() public {
         assertEq(mock.owner(), owner);
         assertEq(mock.timeThreshold(), timeThreshold);
@@ -57,8 +95,7 @@ contract OracleVerifierTest is Test {
     }
 
     function test_VerifyTrusted() public {
-        uint256 price = 123;
-        string memory text = "abc";
+        (string memory text, uint256 price) = fetchPrice();
         bytes memory data = abi.encode(price, text);
         uint256 timestamp = block.timestamp;
         bytes memory signature = signPayload(data, timestamp, oracleKey);
