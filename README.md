@@ -47,7 +47,7 @@ While the `OracleVerifier` implementation provides several benefits, there are a
 
 ## 🤖 Usage
 
-To use the Oracle Verifier in your project, import the contracts from the src directory. The OracleVerifier.sol contract is abstract and should be inherited by your own contract. A mock implementation and comprehensive tests for OracleVerifier are also provided for reference and testing purposes.
+To use the `OracleVerifier` in your project, import the contracts from the src directory. The `OracleVerifier.sol` contract is abstract and should be inherited by your own contract. A mock implementation and comprehensive tests for `OracleVerifier` are also provided for reference and testing purposes.
 
 ## :scroll: License
 
